@@ -1,45 +1,21 @@
 @echo off
-setlocal enabledelayedexpansion
-
-echo Preparando entorno...
-pause
-
-echo Instalando customtkinter...
-"C:\Users\Rauhh\AppData\Local\Programs\Python\Python310\python.exe" -m pip install customtkinter
-pause
-
-echo Limpiando compilaciones anteriores...
+REM Limpiar compilaciones anteriores
+echo Limpiando carpetas de build y dist...
 rd /s /q build
 rd /s /q dist
-del /f /q main.spec
-pause
+del /f /q FiveChanger.spec
 
-echo Compilando con PyInstaller...
-"C:\Users\Rauhh\AppData\Local\Programs\Python\Python310\python.exe" -m PyInstaller --onefile --noconsole main.py
-if errorlevel 1 (
-    echo Hubo un error durante la compilacion.
-    pause
-    exit /b 1
-)
+echo Limpiando caches de Python...
+for /d /r . %%d in (__pycache__) do rd /s /q "%%d"
 
-echo Compilacion finalizada. El .exe esta en la carpeta dist.
-pause
+REM Instalar dependencias necesarias (ajusta si usas otro entorno)
+echo Instalando dependencias...
+pip install --upgrade pip
+pip install --upgrade keyauth customtkinter
 
-:: Define rutas Tcl y Tk
-set TCL_PATH=C:\Users\Rauhh\AppData\Local\Programs\Python\Python310\tcl\tcl8.6
-set TK_PATH=C:\Users\Rauhh\AppData\Local\Programs\Python\Python310\tcl\tk8.6
+REM Crear ejecutable con PyInstaller
+echo Compilando ejecutable con PyInstaller...
+pyinstaller --onefile --add-data "utils;utils" --hidden-import=keyauth --hidden-import=utils.keyauth_manager main.py
 
-:: Verificar si las rutas existen y mostrar mensaje
-if exist "!TCL_PATH!" (
-    echo Ruta Tcl encontrada: !TCL_PATH!
-) else (
-    echo Ruta Tcl NO encontrada: !TCL_PATH!
-)
-
-if exist "!TK_PATH!" (
-    echo Ruta Tk encontrada: !TK_PATH!
-) else (
-    echo Ruta Tk NO encontrada: !TK_PATH!
-)
-
+echo Proceso finalizado.
 pause

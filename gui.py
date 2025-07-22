@@ -1,80 +1,88 @@
-import os
-import json
-import customtkinter as ctk
 import tkinter as tk
+import customtkinter as ctk
+from utils.profile_manager import get_profiles, save_profile, load_profile, delete_profile
 from tkinter import messagebox
-from fivechanger_gui import FiveChangerApp  # Asegúrate que la ruta y nombre sea correcto
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("dark-blue")
-
-class GuiApp(ctk.CTk):
+class ProfileManagerGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.title("Gestor de Perfiles")
+        self.geometry("500x400")
+        self.font_bold = ("Helvetica", 14, "bold")
 
-        self.title("FiveChanger - Configurar Ruta")
-        self.geometry("500x300")
-        self.resizable(False, False)
+        container = ctk.CTkFrame(self)
+        container.pack(padx=20, pady=20, fill="both", expand=True)
 
-        self.font_title = ctk.CTkFont(family="Segoe UI", size=20, weight="bold")
-        self.font_text = ctk.CTkFont(family="Segoe UI", size=13, weight="normal")
+        # Listbox para mostrar perfiles
+        self.listbox = tk.Listbox(container, font=self.font_bold, bg="#2b2b2b", fg="white",
+                                  selectbackground="#3a3a3a")
+        self.listbox.pack(fill="both", expand=True)
 
-        self.title_label = ctk.CTkLabel(self, text="Configurar Ruta de FiveM", font=self.font_title)
-        self.title_label.pack(pady=(30, 15))
+        # Entrada para crear perfil nuevo
+        self.new_profile_entry = ctk.CTkEntry(container, placeholder_text="Nombre nuevo perfil", font=self.font_bold)
+        self.new_profile_entry.pack(pady=10, fill="x")
 
-        self.frame_entry = ctk.CTkFrame(self)
-        self.frame_entry.pack(padx=15, pady=15, fill="x")
+        # Botón crear perfil
+        self.create_btn = ctk.CTkButton(container, text="Crear perfil", font=self.font_bold, command=self.create_profile)
+        self.create_btn.pack(pady=5)
 
-        self.path_entry = ctk.CTkEntry(self.frame_entry, placeholder_text="Ruta de la carpeta FiveM", font=self.font_text)
-        self.path_entry.pack(side="left", expand=True, fill="x", padx=(10, 5), pady=10)
+        # Frame con botones cargar y eliminar perfil
+        btn_frame = ctk.CTkFrame(container)
+        btn_frame.pack(pady=10, fill="x")
 
-        self.browse_btn = ctk.CTkButton(self.frame_entry, text="Seleccionar...", command=self.browse_folder)
-        self.browse_btn.pack(side="left", padx=(5, 10), pady=10)
+        self.load_btn = ctk.CTkButton(btn_frame, text="Cargar perfil", font=self.font_bold, command=self.load_profile)
+        self.load_btn.pack(side="left", expand=True, padx=5)
 
-        self.save_btn = ctk.CTkButton(self, text="Guardar Ruta", command=self.guardar_ruta, font=self.font_text)
-        self.save_btn.pack(pady=(10, 20))
+        self.delete_btn = ctk.CTkButton(btn_frame, text="Eliminar perfil", font=self.font_bold, command=self.delete_profile)
+        self.delete_btn.pack(side="left", expand=True, padx=5)
 
-        ruta = self.obtener_ruta_base()
-        self.path_entry.insert(0, ruta)
+        self.refresh_profiles()
 
-    def browse_folder(self):
-        from tkinter import filedialog
-        folder_selected = filedialog.askdirectory()
-        if folder_selected:
-            self.path_entry.delete(0, tk.END)
-            self.path_entry.insert(0, folder_selected)
+    def refresh_profiles(self):
+        self.listbox.delete(0, tk.END)
+        perfiles = get_profiles()
+        for perfil in perfiles:
+            self.listbox.insert(tk.END, perfil)
 
-    def guardar_ruta(self):
-        ruta = self.path_entry.get().strip()
-        if not ruta or not os.path.exists(ruta):
-            messagebox.showerror("Error", "Por favor, selecciona una ruta válida.")
+    def create_profile(self):
+        name = self.new_profile_entry.get().strip()
+        if not name:
+            messagebox.showwarning("Error", "El nombre del perfil no puede estar vacío.")
             return
+        perfiles = get_profiles()
+        if name in perfiles:
+            messagebox.showwarning("Error", "Ese perfil ya existe.")
+            return
+        try:
+            save_profile(name)
+            messagebox.showinfo("Éxito", f"Perfil '{name}' creado.")
+            self.new_profile_entry.delete(0, tk.END)
+            self.refresh_profiles()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo crear el perfil:\n{e}")
 
-        carpeta_config = os.path.join(os.getenv('LOCALAPPDATA'), 'FiveChanger')
-        os.makedirs(carpeta_config, exist_ok=True)
-        config_path = os.path.join(carpeta_config, 'config.json')
+    def load_profile(self):
+        selection = self.listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Error", "Selecciona un perfil para cargar.")
+            return
+        perfil = self.listbox.get(selection[0])
+        try:
+            load_profile(perfil)
+            messagebox.showinfo("Éxito", f"Perfil '{perfil}' cargado correctamente.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo cargar el perfil:\n{e}")
 
-        config = {"fivem_app_path": ruta}
-        with open(config_path, 'w') as f:
-            json.dump(config, f, indent=4)
-
-        messagebox.showinfo("Guardado", "Ruta guardada correctamente.")
-
-        self.destroy()  # Cierra esta ventana
-
-        app_gestor = FiveChangerApp()  # Abre el gestor
-        app_gestor.mainloop()
-
-    def obtener_ruta_base(self):
-        config_path = os.path.join(os.getenv('LOCALAPPDATA'), 'FiveChanger', 'config.json')
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-                return config.get("fivem_app_path", os.path.join(os.getenv('LOCALAPPDATA'), 'FiveChanger'))
-        else:
-            return os.path.join(os.getenv('LOCALAPPDATA'), 'FiveChanger')
-
-
-if __name__ == "__main__":
-    app = GuiApp()
-    app.mainloop()
+    def delete_profile(self):
+        selection = self.listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Error", "Selecciona un perfil para eliminar.")
+            return
+        perfil = self.listbox.get(selection[0])
+        if messagebox.askyesno("Confirmar", f"¿Eliminar perfil '{perfil}'? Esta acción no se puede deshacer."):
+            try:
+                delete_profile(perfil)
+                messagebox.showinfo("Éxito", f"Perfil '{perfil}' eliminado.")
+                self.refresh_profiles()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar el perfil:\n{e}")
