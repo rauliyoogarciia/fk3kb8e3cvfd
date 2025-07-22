@@ -1,4 +1,4 @@
-import requests, json, hashlib, time, os, sys
+import requests, sys, os
 from .checksum import getchecksum
 
 class Keyauth:
@@ -7,16 +7,13 @@ class Keyauth:
         self.ownerid = ownerid
         self.secret = secret
         self.version = version
-        self.hash_to_check = hash_to_check
+        self.hash_to_check = hash_to_check or getchecksum()
         self.baseurl = "https://keyauth.win/api/1.1/"
         self.sessionid = ""
-        self.encKey = None
         self.data = None
+        self.last_message = ""
 
     def init(self):
-        if self.hash_to_check is None:
-            self.hash_to_check = getchecksum()
-
         post_data = {
             "type": "init",
             "ver": self.version,
@@ -27,13 +24,13 @@ class Keyauth:
         self.data = self.req(post_data)
 
         if not self.data["success"]:
+            self.last_message = self.data["message"]
             if self.data["message"] == "invalidver":
                 print(f"[!] Versión inválida. Descargando actualización desde: {self.data['download']}")
                 os.system(f"start {self.data['download']}")
-                sys.exit()
             else:
                 print(f"[!] Error en la inicialización: {self.data['message']}")
-                sys.exit()
+            sys.exit()
 
         self.sessionid = self.data["sessionid"]
 
@@ -47,7 +44,8 @@ class Keyauth:
             "ownerid": self.ownerid,
         }
         self.data = self.req(post_data)
-        return self.data["success"], self.data.get("message", "Error desconocido")
+        self.last_message = self.data.get("message", "")
+        return self.data["success"]
 
     def register(self, username, password, license_key):
         post_data = {
@@ -60,7 +58,8 @@ class Keyauth:
             "ownerid": self.ownerid,
         }
         self.data = self.req(post_data)
-        return self.data["success"], self.data.get("message", "Error desconocido")
+        self.last_message = self.data.get("message", "")
+        return self.data["success"]
 
     def check(self):
         post_data = {
@@ -70,6 +69,7 @@ class Keyauth:
             "ownerid": self.ownerid,
         }
         self.data = self.req(post_data)
+        self.last_message = self.data.get("message", "")
         return self.data["success"]
 
     def req(self, data):
